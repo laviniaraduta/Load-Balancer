@@ -1,0 +1,88 @@
+========== Lavinia-Maria Raduta ==========
+==========        313CAa        ==========
+==========     Homework 2 SD    ==========
+
+
+=============================== Load Balancer ===============================
+
+This homework proposes to implement a Load Balancer using Consistent Hashing.
+This is a commonly used mechanism in distributed systems and has the advantage
+of meeting minimal disruption constraint, ie minimizing the number of
+transfers required when a server is shut down or one is started.
+
+The servers are implemented using a structure (server_memory) containing:
+    > an id (type int);
+    > an array of ints representig the tags of the 3 replicas;
+    > a hashtable which is used to store the products,
+    using the product id as key. 
+
+The Load Balancer is implemented as a structure (load_balancer) containing:
+    > an array of pointers to all each server added in the system;
+    > the hashring implemented as an array of ints (array that stores
+    all the tags of every server sorted ascending by their hash);
+    > the number of active servers.
+
+The description of functions and their arguments can be found in the .h files.
+
+The main operations that can be made on the Load Balancer are:
+    > adding a new product on the correct server;
+    > retrieve a product information from the correct server;   
+    > adding a new server;
+    > removing an existing server.
+
+* ADDING A NEW PRODUCT (loader_store()):
+    - we have to go through the hashring (which is sorted ascending by the tags
+      hashes) and find the replica whose hash is greater than the
+      product id's (key) hash;
+    - because the hashring is circular and the implementation is a linear array
+     if the correct server wasn't found by the end of the array (the key hash
+     is greater than the last replica's hash or smaller than the first's) then
+     it means that the correct server for the product to be stored on is the first
+     one on the hashring.
+    - when the replica that has the right hash is found, we find whose server
+     it belongs to (find_server);
+    - the last thing is to add the product to the server's hashtable and save
+     its id in the function parameter server_id.
+
+* RETRIEVE A PRODUCT INFORMATION (loader_retrieve()):
+    - the thinking is exactly the same as the one used at adding the product;
+    - here, the product name is retrieved from the server that was found.
+
+* ADDING A NEW SERVER (loader_add_server()):
+    - a new server is initiated and its id is completed;
+    - all 3 tags are calculated and added in the tags array and each one is
+     added on the hashring (add_new_value), keeping the order right.
+    - the server is added to the server array and their number increases;
+    - next it's time to redistribute some of the products from the server whose
+     replicas are after the new server's replicas on the hashring;
+    - for each replica we need to find the previous replica on the hashring and
+     the next one that is NOT of the same server. In other words, consecutive
+     replicas of the same server have to be skipped;
+    - after finding the next server the products that are moved are the one with
+     the key_hash in the interval (prev_hash, next_hash);
+    - there is a special case when the replica of the new server is the first on
+     the hashring -> here the keys that have to be moved have the hashes grater
+     than the prev_hash or smaller than the current replica's hash;
+    - the correct keys are added in the new server's hashtable and then removed
+     from the old's one.
+
+* REMOVING AN EXISTING SERVER (loader_remove_server()):
+    - firstly, we find the server with the given id in the servers array;
+    - all the replicas of this server are removed from the hashring;
+    - in the same function we search the tags of the next and previous
+     replicas on the hashring also paying attention to skipping the consecutive
+     replicas of the same server (this time for both prev and next);
+    - the 3 pairs of tags (prev, next) found are kept in 2 arrays;
+    - for every pair of tags the redistribution of products begins. Firstly, we
+     find which server has that tag, then we have to move the products from the
+     removed server to the next one with the condition that the key hash in the
+     interval (prev_hash, next_hash);
+    - there is also a special case: when the server that is removed is the
+     first or the last on the hashring -> here the keys that have to be moved
+     have the hashes grater than the prev_hash or smaller than the current
+     replica's hash;
+    - the correct keys are added in the new server's hashtable and then removed
+     from the old's one;
+    - lastly, the server that was removed from the hashring is now removed also
+     from the servers array (from the load_balancer structure), its memory is
+     freed and the number of servers decreases.
